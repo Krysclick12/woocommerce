@@ -1487,6 +1487,7 @@ class WC_Helper {
 				'product_name'   => $data['Name'],
 				'product_url'    => $data['PluginURI'],
 				'zip_slug'       => $data['slug'],
+				'documentation_url' => '',
 				'key_type'       => '',
 				'key_type_label' => '',
 				'lifetime'       => false,
