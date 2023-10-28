@@ -274,7 +274,7 @@ class PageController {
 			$sendback = remove_query_arg( array( 'deleted' ), wp_get_referer() );
 
 			// Multiple file[] params will be filtered separately, but assigned to $files as an array.
-			$files = filter_input(
+			$file_ids = filter_input(
 				INPUT_GET,
 				'file',
 				FILTER_CALLBACK,
@@ -285,13 +285,13 @@ class PageController {
 				)
 			);
 
-			if ( ! is_array( $files ) || count( $files ) < 1 ) {
+			if ( ! is_array( $file_ids ) || count( $file_ids ) < 1 ) {
 				wp_safe_redirect( $sendback );
 			}
 
 			switch ( $action ) {
 				case 'delete':
-					$deleted  = $this->file_controller->delete_files( $files );
+					$deleted  = $this->file_controller->delete_files( $file_ids );
 					$sendback = add_query_arg( 'deleted', $deleted, $sendback );
 					break;
 			}
