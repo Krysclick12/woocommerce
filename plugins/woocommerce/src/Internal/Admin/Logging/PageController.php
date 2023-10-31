@@ -408,7 +408,7 @@ class PageController {
 			$severity_levels[] = WC_Log_Levels::get_severity_level( $severity );
 		}
 
-		$text = trim( $text );
+		$text = esc_html( trim( $text ) );
 		if ( empty( $text ) ) {
 			$text = '&nbsp;';
 		}
@@ -446,7 +446,7 @@ class PageController {
 			),
 			sprintf(
 				'<span class="line-content">%s</span>',
-				esc_html( $text )
+				wp_kses_post( $text )
 			)
 		);
 
