@@ -13,7 +13,10 @@ import { Logger } from '../../../../core/logger';
 import { checkoutRemoteBranch } from '../../../../core/git';
 import { createPullRequest } from '../../../../core/github/repo';
 import { Options } from '../types';
-import { getToday, DAYS_BETWEEN_CODE_FREEZE_AND_RELEASE } from '../../get-version/lib';
+import {
+	getToday,
+	DAYS_BETWEEN_CODE_FREEZE_AND_RELEASE,
+} from '../../get-version/lib';
 
 /**
  * Perform changelog adjustments after Jetpack Changelogger has run.
@@ -27,7 +30,9 @@ const updateReleaseChangelogs = async (
 ) => {
 	const today = getToday( override );
 
-	const releaseTime = today.plus( { days: DAYS_BETWEEN_CODE_FREEZE_AND_RELEASE } );
+	const releaseTime = today.plus( {
+		days: DAYS_BETWEEN_CODE_FREEZE_AND_RELEASE,
+	} );
 	const releaseDate = releaseTime.toISODate();
 
 	const readmeFile = path.join(
@@ -136,27 +141,28 @@ export const updateReleaseBranchChangelogs = async (
 		await git.checkout( '.' );
 
 		if ( commitDirectToBase ) {
-			Logger.notice( `Changelog update was committed directly to ${ releaseBranch }` );
+			Logger.notice(
+				`Changelog update was committed directly to ${ releaseBranch }`
+			);
 			return {
 				deletionCommitHash: deletionCommitHash.trim(),
 				prNumber: -1,
 			};
-		} else {
-			Logger.notice( `Creating PR for ${ branch }` );
-			const pullRequest = await createPullRequest( {
-				owner,
-				name,
-				title: `Release: Prepare the changelog for ${ version }`,
-				body: `This pull request was automatically generated during the code freeze to prepare the changelog for ${ version }`,
-				head: branch,
-				base: releaseBranch,
-			} );
-			Logger.notice( `Pull request created: ${ pullRequest.html_url }` );
-			return {
-				deletionCommitHash: deletionCommitHash.trim(),
-				prNumber: pullRequest.number,
-			};
 		}
+		Logger.notice( `Creating PR for ${ branch }` );
+		const pullRequest = await createPullRequest( {
+			owner,
+			name,
+			title: `Release: Prepare the changelog for ${ version }`,
+			body: `This pull request was automatically generated during the code freeze to prepare the changelog for ${ version }`,
+			head: branch,
+			base: releaseBranch,
+		} );
+		Logger.notice( `Pull request created: ${ pullRequest.html_url }` );
+		return {
+			deletionCommitHash: deletionCommitHash.trim(),
+			prNumber: pullRequest.number,
+		};
 	} catch ( e ) {
 		Logger.error( e );
 	}
@@ -203,7 +209,9 @@ export const updateTrunkChangelog = async (
 			owner,
 			name,
 			title: `Release: Remove ${ version } change files`,
-			body: `This pull request was automatically generated during the code freeze to remove the changefiles from ${ version } that are compiled into the \`${ releaseBranch }\` ${ prNumber > 0 ? `branch via #${ prNumber }` : '' }`,
+			body: `This pull request was automatically generated during the code freeze to remove the changefiles from ${ version } that are compiled into the \`${ releaseBranch }\` ${
+				prNumber > 0 ? `branch via #${ prNumber }` : ''
+			}`,
 			head: branch,
 			base: 'trunk',
 		} );

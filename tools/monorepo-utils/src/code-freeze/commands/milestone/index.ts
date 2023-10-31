@@ -9,10 +9,8 @@ import ora from 'ora';
  */
 import { getLatestGithubReleaseVersion } from '../../../core/github/repo';
 import { octokitWithAuth } from '../../../core/github/api';
-import { setGithubMilestoneOutputs } from './utils';
 import { WPIncrement } from '../../../core/version';
 import { Logger } from '../../../core/logger';
-import { isGithubCI } from '../../../core/environment';
 
 export const milestoneCommand = new Command( 'milestone' )
 	.description( 'Create a milestone' )
@@ -33,7 +31,6 @@ export const milestoneCommand = new Command( 'milestone' )
 	)
 	.action( async ( options ) => {
 		const { owner, name, dryRun, milestone } = options;
-		const isGithub = isGithubCI();
 
 		let nextMilestone;
 		let nextReleaseVersion;

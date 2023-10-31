@@ -2,6 +2,7 @@
  * External dependencies
  */
 import { Command } from '@commander-js/extra-typings';
+import { DateTime } from 'luxon';
 import { setOutput } from '@actions/core';
 import chalk from 'chalk';
 
@@ -15,55 +16,13 @@ import {
 	getMonthlyCycle,
 	getAcceleratedCycle,
 	getVersionsBetween,
-
-
-	getVersion,
-	getVersionMonthly,
-	getBranch,
-	getBranchMonthly,
-	getNextMilestone,
-	getNextReleaseDate,
-	getNextMonthlyReleaseDate,
 } from './lib/index';
-
-
-const getDataForDay = ( override ) => {
-	const today = getToday( override );
-	const aVersion = getVersion( override );
-	const monthlyVersion = getVersionMonthly( override );
-	const monthlyVersionXY = monthlyVersion.substr( 0, monthlyVersion.lastIndexOf( '.' ) );
-	const aBranch = getBranch( override );
-	const monthlyBranch = getBranchMonthly( override );
-	const nextMilestone = getNextMilestone( override );
-	const nextReleaseDate = getNextReleaseDate( override );
-	const nextMonthlyReleaseDate = getNextMonthlyReleaseDate( override );
-	const isTodayReleaseDate = today.get( 'weekday' ) === 2 ? 'yes' : 'no';
-	const isTodayMonthlyReleaseDay = '';
-	const isTodayAcceleratedFreeze = today.get( 'weekday' ) === 4 ? 'yes' : 'no';
-	//const isTodayMonthlyFreeze = isTodayCodeFreezeDay( override ) ? 'yes' : 'no';
-	const releasesFrozenToday = JSON.stringify( Object.values( {
-		//...( isTodayMonthlyFreeze === 'yes' && { monthlyVersion: `${ monthlyVersion } (Monthly)` } ),
-		...( isTodayAcceleratedFreeze === 'yes' && { aVersion: `${ aVersion } (AF)` } ),
-	} ) );
-	return {
-		today,
-		aVersion,
-		monthlyVersion,
-		monthlyVersionXY,
-		aBranch,
-		monthlyBranch,
-		nextMilestone,
-		nextReleaseDate,
-		nextMonthlyReleaseDate,
-		isTodayAcceleratedFreeze,
-		//isTodayMonthlyFreeze,
-		releasesFrozenToday,
-	};
-};
 
 const getRange = ( override, between ) => {
 	if ( isGithubCI() ) {
-		Logger.error( '-b, --between option is not compatible with GitHub CI Output.' );
+		Logger.error(
+			'-b, --between option is not compatible with GitHub CI Output.'
+		);
 		process.exit( 1 );
 	}
 
@@ -71,15 +30,27 @@ const getRange = ( override, between ) => {
 	const end = getToday( between );
 	const versions = getVersionsBetween( today, end );
 
-	Logger.notice( chalk.greenBright.bold(
-		`Releases Between ${ today.toFormat( 'DDDD' ) } and ${ end.toFormat( 'DDDD' ) }\n`
-	) );
+	Logger.notice(
+		chalk.greenBright.bold(
+			`Releases Between ${ today.toFormat( 'DDDD' ) } and ${ end.toFormat(
+				'DDDD'
+			) }\n`
+		)
+	);
 
-	// @ts-ignore
-	Logger.table( [ 'Version', 'Development Begins', 'Freeze', 'Release' ], versions.map( v => Object.values( v ).map( d => d.toFormat ? d.toFormat('EEE, MMM dd, yyyy') : d ) ) );
+	Logger.table(
+		[ 'Version', 'Development Begins', 'Freeze', 'Release' ],
+		versions.map( ( v ) =>
+			Object.values( v ).map( ( d: DateTime | string ) =>
+				typeof d.toFormat === 'function'
+					? d.toFormat( 'EEE, MMM dd, yyyy' )
+					: d
+			)
+		)
+	);
 
 	process.exit( 0 );
-}
+};
 
 export const getVersionCommand = new Command( 'get-version' )
 	.description( 'Get the release calendar for a given date' )
@@ -104,65 +75,93 @@ export const getVersionCommand = new Command( 'get-version' )
 		const monthlyDevelopment = getMonthlyCycle( today );
 
 		// Generate human-friendly output.
-		Logger.notice( chalk.greenBright.bold(
-			`Release Calendar for ${ today.toFormat( 'DDDD' ) }\n`
-		) );
+		Logger.notice(
+			chalk.greenBright.bold(
+				`Release Calendar for ${ today.toFormat( 'DDDD' ) }\n`
+			)
+		);
 		const table = [];
 		// We're not in a release cycle on Wednesday.
 		if ( today.get( 'weekday' ) !== 3 ) {
 			table.push( [
 				`${ chalk.red( 'Accelerated Release Cycle' ) }`,
 				acceleratedRelease.version,
-				acceleratedRelease.begin.toFormat('EEE, MMM dd, yyyy'),
-				acceleratedRelease.freeze.toFormat('EEE, MMM dd, yyyy'),
-				acceleratedRelease.release.toFormat('EEE, MMM dd, yyyy'),
+				acceleratedRelease.begin.toFormat( 'EEE, MMM dd, yyyy' ),
+				acceleratedRelease.freeze.toFormat( 'EEE, MMM dd, yyyy' ),
+				acceleratedRelease.release.toFormat( 'EEE, MMM dd, yyyy' ),
 			] );
 		}
 		table.push( [
 			`${ chalk.red( 'Accelerated Development Cycle' ) }`,
 			acceleratedDevelopment.version,
-			acceleratedDevelopment.begin.toFormat('EEE, MMM dd, yyyy'),
-			acceleratedDevelopment.freeze.toFormat('EEE, MMM dd, yyyy'),
-			acceleratedDevelopment.release.toFormat('EEE, MMM dd, yyyy'),
+			acceleratedDevelopment.begin.toFormat( 'EEE, MMM dd, yyyy' ),
+			acceleratedDevelopment.freeze.toFormat( 'EEE, MMM dd, yyyy' ),
+			acceleratedDevelopment.release.toFormat( 'EEE, MMM dd, yyyy' ),
 		] );
 		// We're only in a release cycle if it is after the freeze day.
 		if ( today > monthlyRelease.freeze ) {
 			table.push( [
 				`${ chalk.red( 'Monthly Release Cycle' ) }`,
 				monthlyRelease.version,
-				monthlyRelease.begin.toFormat('EEE, MMM dd, yyyy'),
-				monthlyRelease.freeze.toFormat('EEE, MMM dd, yyyy'),
-				monthlyRelease.release.toFormat('EEE, MMM dd, yyyy'),
+				monthlyRelease.begin.toFormat( 'EEE, MMM dd, yyyy' ),
+				monthlyRelease.freeze.toFormat( 'EEE, MMM dd, yyyy' ),
+				monthlyRelease.release.toFormat( 'EEE, MMM dd, yyyy' ),
 			] );
 		}
 		table.push( [
 			`${ chalk.red( 'Monthly Development Cycle' ) }`,
 			monthlyDevelopment.version,
-			monthlyDevelopment.begin.toFormat('EEE, MMM dd, yyyy'),
-			monthlyDevelopment.freeze.toFormat('EEE, MMM dd, yyyy'),
-			monthlyDevelopment.release.toFormat('EEE, MMM dd, yyyy'),
+			monthlyDevelopment.begin.toFormat( 'EEE, MMM dd, yyyy' ),
+			monthlyDevelopment.freeze.toFormat( 'EEE, MMM dd, yyyy' ),
+			monthlyDevelopment.release.toFormat( 'EEE, MMM dd, yyyy' ),
 		] );
-		Logger.table( [ '', 'Version', 'Development Begins', 'Freeze', 'Release' ], table );
-
+		Logger.table(
+			[ '', 'Version', 'Development Begins', 'Freeze', 'Release' ],
+			table
+		);
 
 		if ( isGithubCI() ) {
 			// For the machines.
 			const isTodayAcceleratedFreeze = today.get( 'weekday' ) === 4;
 			const isTodayMonthlyFreeze = +today === +monthlyDevelopment.begin;
-			const monthlyVersionXY = monthlyRelease.version.substr( 0, monthlyRelease.version.lastIndexOf( '.' ) );
-			setOutput( 'isTodayAcceleratedFreeze', isTodayAcceleratedFreeze ? 'yes' : 'no' );
-			setOutput( 'isTodayMonthlyFreeze', isTodayMonthlyFreeze ? 'yes' : 'no' );
+			const monthlyVersionXY = monthlyRelease.version.substr(
+				0,
+				monthlyRelease.version.lastIndexOf( '.' )
+			);
+			setOutput(
+				'isTodayAcceleratedFreeze',
+				isTodayAcceleratedFreeze ? 'yes' : 'no'
+			);
+			setOutput(
+				'isTodayMonthlyFreeze',
+				isTodayMonthlyFreeze ? 'yes' : 'no'
+			);
 			setOutput( 'acceleratedVersion', acceleratedRelease.version );
 			setOutput( 'monthlyVersion', monthlyRelease.version );
 			setOutput( 'monthlyVersionXY', monthlyVersionXY );
-			setOutput( 'releasesFrozenToday', JSON.stringify( Object.values( {
-				...( isTodayMonthlyFreeze && { monthlyVersion: `${ monthlyRelease.version } (Monthly)` } ),
-				...( isTodayAcceleratedFreeze && { aVersion: `${ acceleratedRelease.version } (AF)` } ),
-			} ) ) );
-			setOutput( 'acceleratedBranch', `release/${ acceleratedRelease.version }` );
+			setOutput(
+				'releasesFrozenToday',
+				JSON.stringify(
+					Object.values( {
+						...( isTodayMonthlyFreeze && {
+							monthlyVersion: `${ monthlyRelease.version } (Monthly)`,
+						} ),
+						...( isTodayAcceleratedFreeze && {
+							aVersion: `${ acceleratedRelease.version } (AF)`,
+						} ),
+					} )
+				)
+			);
+			setOutput(
+				'acceleratedBranch',
+				`release/${ acceleratedRelease.version }`
+			);
 			setOutput( 'monthlyBranch', `release/${ monthlyVersionXY }` );
 			setOutput( 'monthlyMilestone', monthlyDevelopment.version );
-			setOutput( 'acceleratedReleaseDate', acceleratedDevelopment.release.toISODate() );
+			setOutput(
+				'acceleratedReleaseDate',
+				acceleratedDevelopment.release.toISODate()
+			);
 		}
 
 		process.exit( 0 );
