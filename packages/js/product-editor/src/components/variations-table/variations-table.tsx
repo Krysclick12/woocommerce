@@ -53,6 +53,7 @@ import { Pagination } from './pagination';
 import { EmptyTableState } from './table-empty-state';
 import { useProductVariationsHelper } from '../../hooks/use-product-variations-helper';
 import { VariationsFilter } from './variations-filter';
+import { TableRowSkeleton } from './table-row-skeleton';
 
 const NOT_VISIBLE_TEXT = __( 'Not visible to customers', 'woocommerce' );
 
@@ -427,16 +428,6 @@ export const VariationsTable = forwardRef<
 
 	return (
 		<div className="woocommerce-product-variations" ref={ ref }>
-			{ ( isLoading || isGeneratingVariations ) && (
-				<div className="woocommerce-product-variations__loading">
-					<Spinner />
-					{ isGeneratingVariations && (
-						<span>
-							{ __( 'Generating variations…', 'woocommerce' ) }
-						</span>
-					) }
-				</div>
-			) }
 			{ noticeText && (
 				<Notice
 					status={ noticeStatus }
@@ -519,134 +510,159 @@ export const VariationsTable = forwardRef<
 				</div>
 			) }
 
-			<Sortable className="woocommerce-product-variations__table">
-				{ variations.map( ( variation ) => (
-					<ListItem key={ `${ variation.id }` }>
-						<div className="woocommerce-product-variations__selection">
-							<CheckboxControl
-								value={ variation.id }
-								checked={ isSelected( variation.id ) }
-								onChange={ onSelectItem( variation.id ) }
-							/>
-						</div>
-						<div className="woocommerce-product-variations__attributes">
-							{ variation.attributes.map( ( attribute ) => {
-								const tag = (
-									/* eslint-disable-next-line @typescript-eslint/ban-ts-comment */
-									/* @ts-ignore Additional props are not required. */
-									<Tag
-										id={ attribute.id }
-										className="woocommerce-product-variations__attribute"
-										key={ attribute.id }
-										label={ truncate( attribute.option, {
-											length: PRODUCT_VARIATION_TITLE_LIMIT,
-										} ) }
-										screenReaderLabel={ attribute.option }
-									/>
-								);
+			{ isLoading || isGeneratingVariations ? (
+				<div
+					className="woocommerce-product-variations__table"
+					aria-label={
+						isGeneratingVariations
+							? __( 'Generating variations…', 'woocommerce' )
+							: __( 'Loading variations…', 'woocommerce' )
+					}
+				>
+					{ Array( perPage )
+						.fill( 0 )
+						.map( ( _, index ) => (
+							<TableRowSkeleton key={ index } />
+						) ) }
+				</div>
+			) : (
+				<Sortable className="woocommerce-product-variations__table">
+					{ variations.map( ( variation ) => (
+						<ListItem key={ `${ variation.id }` }>
+							<div className="woocommerce-product-variations__selection">
+								<CheckboxControl
+									value={ variation.id }
+									checked={ isSelected( variation.id ) }
+									onChange={ onSelectItem( variation.id ) }
+								/>
+							</div>
+							<div className="woocommerce-product-variations__attributes">
+								{ variation.attributes.map( ( attribute ) => {
+									const tag = (
+										/* eslint-disable-next-line @typescript-eslint/ban-ts-comment */
+										/* @ts-ignore Additional props are not required. */
+										<Tag
+											id={ attribute.id }
+											className="woocommerce-product-variations__attribute"
+											key={ attribute.id }
+											label={ truncate(
+												attribute.option,
+												{
+													length: PRODUCT_VARIATION_TITLE_LIMIT,
+												}
+											) }
+											screenReaderLabel={
+												attribute.option
+											}
+										/>
+									);
 
-								return attribute.option.length <=
-									PRODUCT_VARIATION_TITLE_LIMIT ? (
-									tag
-								) : (
-									<Tooltip
-										key={ attribute.id }
-										text={ attribute.option }
-										position="top center"
-									>
-										<span>{ tag }</span>
-									</Tooltip>
-								);
-							} ) }
-						</div>
-						<div
-							className={ classnames(
-								'woocommerce-product-variations__price',
-								{
-									'woocommerce-product-variations__price--fade':
-										variation.status === 'private',
-								}
-							) }
-						>
-							{ variation.on_sale && (
-								<span className="woocommerce-product-variations__sale-price">
-									{ formatAmount( variation.sale_price ) }
-								</span>
-							) }
-							<span
+									return attribute.option.length <=
+										PRODUCT_VARIATION_TITLE_LIMIT ? (
+										tag
+									) : (
+										<Tooltip
+											key={ attribute.id }
+											text={ attribute.option }
+											position="top center"
+										>
+											<span>{ tag }</span>
+										</Tooltip>
+									);
+								} ) }
+							</div>
+							<div
 								className={ classnames(
-									'woocommerce-product-variations__regular-price',
+									'woocommerce-product-variations__price',
 									{
-										'woocommerce-product-variations__regular-price--on-sale':
-											variation.on_sale,
+										'woocommerce-product-variations__price--fade':
+											variation.status === 'private',
 									}
 								) }
 							>
-								{ formatAmount( variation.regular_price ) }
-							</span>
-						</div>
-						<div
-							className={ classnames(
-								'woocommerce-product-variations__quantity',
-								{
-									'woocommerce-product-variations__quantity--fade':
-										variation.status === 'private',
-								}
-							) }
-						>
-							{ variation.regular_price && (
-								<>
-									<span
-										className={ classnames(
-											'woocommerce-product-variations__status-dot',
-											getProductStockStatusClass(
-												variation
-											)
-										) }
-									>
-										●
+								{ variation.on_sale && (
+									<span className="woocommerce-product-variations__sale-price">
+										{ formatAmount( variation.sale_price ) }
 									</span>
-									{ getProductStockStatus( variation ) }
-								</>
-							) }
-						</div>
-						<div className="woocommerce-product-variations__actions">
-							{ ( variation.status === 'private' ||
-								! variation.regular_price ) && (
-								<Tooltip
-									// @ts-expect-error className is missing in TS, should remove this when it is included.
-									className="woocommerce-attribute-list-item__actions-tooltip"
-									position="top center"
-									text={ NOT_VISIBLE_TEXT }
+								) }
+								<span
+									className={ classnames(
+										'woocommerce-product-variations__regular-price',
+										{
+											'woocommerce-product-variations__regular-price--on-sale':
+												variation.on_sale,
+										}
+									) }
 								>
-									<div className="woocommerce-attribute-list-item__actions-icon-wrapper">
-										<HiddenIcon className="woocommerce-attribute-list-item__actions-icon-wrapper-icon" />
-									</div>
-								</Tooltip>
-							) }
-
-							<Button
-								href={ getEditVariationLink( variation ) }
-								onClick={ editVariationClickHandler(
-									variation
+									{ formatAmount( variation.regular_price ) }
+								</span>
+							</div>
+							<div
+								className={ classnames(
+									'woocommerce-product-variations__quantity',
+									{
+										'woocommerce-product-variations__quantity--fade':
+											variation.status === 'private',
+									}
 								) }
 							>
-								{ __( 'Edit', 'woocommerce' ) }
-							</Button>
+								{ variation.regular_price && (
+									<>
+										<span
+											className={ classnames(
+												'woocommerce-product-variations__status-dot',
+												getProductStockStatusClass(
+													variation
+												)
+											) }
+										>
+											●
+										</span>
+										{ getProductStockStatus( variation ) }
+									</>
+								) }
+							</div>
+							<div className="woocommerce-product-variations__actions">
+								{ ( variation.status === 'private' ||
+									! variation.regular_price ) && (
+									<Tooltip
+										// @ts-expect-error className is missing in TS, should remove this when it is included.
+										className="woocommerce-attribute-list-item__actions-tooltip"
+										position="top center"
+										text={ NOT_VISIBLE_TEXT }
+									>
+										<div className="woocommerce-attribute-list-item__actions-icon-wrapper">
+											<HiddenIcon className="woocommerce-attribute-list-item__actions-icon-wrapper-icon" />
+										</div>
+									</Tooltip>
+								) }
 
-							<VariationActionsMenu
-								selection={ variation }
-								onChange={ ( value ) =>
-									handleVariationChange( variation.id, value )
-								}
-								onDelete={ ( { id } ) =>
-									handleDeleteVariationClick( id )
-								}
-							/>
-						</div>
-					</ListItem>
-				) ) }
-			</Sortable>
+								<Button
+									href={ getEditVariationLink( variation ) }
+									onClick={ editVariationClickHandler(
+										variation
+									) }
+								>
+									{ __( 'Edit', 'woocommerce' ) }
+								</Button>
+
+								<VariationActionsMenu
+									selection={ variation }
+									onChange={ ( value ) =>
+										handleVariationChange(
+											variation.id,
+											value
+										)
+									}
+									onDelete={ ( { id } ) =>
+										handleDeleteVariationClick( id )
+									}
+								/>
+							</div>
+						</ListItem>
+					) ) }
+				</Sortable>
+			) }
 
 			{ totalCount > 5 && (
 				<Pagination
