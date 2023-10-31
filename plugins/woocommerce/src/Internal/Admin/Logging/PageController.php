@@ -407,7 +407,7 @@ class PageController {
 			$severity_levels[] = WC_Log_Levels::get_severity_level( $severity );
 		}
 
-		$text = esc_html( trim( $text ) );
+		$text = trim( $text );
 		if ( empty( $text ) ) {
 			$text = '&nbsp;';
 		}
@@ -426,7 +426,7 @@ class PageController {
 			$segments[1] = sprintf(
 				'<span class="%1$s">%2$s</span>',
 				esc_attr( 'log-level log-level--' . strtolower( $segments[1] ) ),
-				$segments[1]
+				esc_html( $segments[1] )
 			);
 		}
 
@@ -445,7 +445,7 @@ class PageController {
 			),
 			sprintf(
 				'<span class="line-content">%s</span>',
-				$text
+				esc_html( $text )
 			)
 		);
 
