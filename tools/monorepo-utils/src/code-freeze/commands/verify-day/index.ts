@@ -26,13 +26,13 @@ export const verifyDayCommand = new Command( 'verify-day' )
 	.action( ( { override } ) => {
 		const today = getToday( override );
 		const futureDate = getFutureDate( today );
-		Logger.warn( "Today's timestamp UTC is: " + today.toUTCString() );
+		Logger.warn( "Today's timestamp UTC is: " + today.toISODate() );
 		Logger.warn(
 			`Checking to see if ${ DAYS_BETWEEN_CODE_FREEZE_AND_RELEASE } days from today is the second Tuesday of the month.`
 		);
 		const isCodeFreezeDay = isTodayCodeFreezeDay( override );
 		Logger.notice(
-			`${ futureDate.toUTCString() } ${
+			`${ futureDate.toISODate() } ${
 				isCodeFreezeDay ? 'is' : 'is not'
 			} release day.`
 		);

@@ -4,10 +4,6 @@
 import { Command } from '@commander-js/extra-typings';
 import { ErrorCode, WebClient } from '@slack/web-api';
 import { basename } from 'path';
-
-/**
- * External dependencies
- */
 import { existsSync } from 'fs';
 
 /**
@@ -31,7 +27,15 @@ export const slackFileCommand = new Command( 'file' )
 		'--dont-fail',
 		'Do not fail the command if a message fails to send to any channel.'
 	)
-	.action( async ( token, text, filePath, channels, { dontFail } ) => {
+	.option(
+		'--reply-ts <replyTs>',
+		'Reply to the message with the corresponding ts'
+	)
+	.option(
+		'--filename <filename>',
+		'If provided, the filename that will be used for the file on Slack.'
+	)
+	.action( async ( token, text, filePath, channels, { dontFail, replyTs, filename } ) => {
 		Logger.startTask(
 			`Attempting to send message to Slack for channels: ${ channels.join(
 				','
@@ -51,13 +55,16 @@ export const slackFileCommand = new Command( 'file' )
 
 		for ( const channel of channels ) {
 			try {
-				await client.files.uploadV2( {
+				const requestOptions = {
 					file: filePath,
-					filename: basename( filePath ),
+					filename: filename ? filename : basename( filePath ),
 					channel_id: channel,
 					initial_comment: text.replace( /\\n/g, '\n' ),
 					request_file_info: false,
-				} );
+					thread_ts: replyTs ? replyTs : null,
+				};
+
+				await client.files.uploadV2( requestOptions );
 
 				Logger.notice(
 					`Successfully uploaded ${ filePath } to channel: ${ channel }`

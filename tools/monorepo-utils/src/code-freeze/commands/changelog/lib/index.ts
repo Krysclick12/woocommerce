@@ -13,7 +13,7 @@ import { Logger } from '../../../../core/logger';
 import { checkoutRemoteBranch } from '../../../../core/git';
 import { createPullRequest } from '../../../../core/github/repo';
 import { Options } from '../types';
-import { getToday } from '../../verify-day/utils';
+import { getToday, DAYS_BETWEEN_CODE_FREEZE_AND_RELEASE } from '../../get-version/lib';
 
 /**
  * Perform changelog adjustments after Jetpack Changelogger has run.
@@ -27,9 +27,8 @@ const updateReleaseChangelogs = async (
 ) => {
 	const today = getToday( override );
 
-	// The release date is 22 days after the code freeze.
-	const releaseTime = new Date( today.getTime() + 22 * 24 * 60 * 60 * 1000 );
-	const releaseDate = releaseTime.toISOString().split( 'T' )[ 0 ];
+	const releaseTime = today.plus( { days: DAYS_BETWEEN_CODE_FREEZE_AND_RELEASE } );
+	const releaseDate = releaseTime.toISODate();
 
 	const readmeFile = path.join(
 		tmpRepoPath,
@@ -79,7 +78,7 @@ export const updateReleaseBranchChangelogs = async (
 	tmpRepoPath: string,
 	releaseBranch: string
 ): Promise< { deletionCommitHash: string; prNumber: number } > => {
-	const { owner, name, version } = options;
+	const { owner, name, version, commitDirectToBase } = options;
 	try {
 		// Do a full checkout so that we can find the correct PR numbers for changelog entries.
 		await checkoutRemoteBranch( tmpRepoPath, releaseBranch, false );
@@ -100,10 +99,12 @@ export const updateReleaseBranchChangelogs = async (
 	const branch = `update/${ version }-changelog`;
 
 	try {
-		await git.checkout( {
-			'-b': null,
-			[ branch ]: null,
-		} );
+		if ( ! commitDirectToBase ) {
+			await git.checkout( {
+				'-b': null,
+				[ branch ]: null,
+			} );
+		}
 
 		Logger.notice( `Running the changelog script in ${ tmpRepoPath }` );
 		execSync(
@@ -131,23 +132,31 @@ export const updateReleaseBranchChangelogs = async (
 		await git.commit(
 			`Update the readme files for the ${ version } release`
 		);
-		await git.push( 'origin', branch );
+		await git.push( 'origin', commitDirectToBase ? releaseBranch : branch );
 		await git.checkout( '.' );
 
-		Logger.notice( `Creating PR for ${ branch }` );
-		const pullRequest = await createPullRequest( {
-			owner,
-			name,
-			title: `Release: Prepare the changelog for ${ version }`,
-			body: `This pull request was automatically generated during the code freeze to prepare the changelog for ${ version }`,
-			head: branch,
-			base: releaseBranch,
-		} );
-		Logger.notice( `Pull request created: ${ pullRequest.html_url }` );
-		return {
-			deletionCommitHash: deletionCommitHash.trim(),
-			prNumber: pullRequest.number,
-		};
+		if ( commitDirectToBase ) {
+			Logger.notice( `Changelog update was committed directly to ${ releaseBranch }` );
+			return {
+				deletionCommitHash: deletionCommitHash.trim(),
+				prNumber: -1,
+			};
+		} else {
+			Logger.notice( `Creating PR for ${ branch }` );
+			const pullRequest = await createPullRequest( {
+				owner,
+				name,
+				title: `Release: Prepare the changelog for ${ version }`,
+				body: `This pull request was automatically generated during the code freeze to prepare the changelog for ${ version }`,
+				head: branch,
+				base: releaseBranch,
+			} );
+			Logger.notice( `Pull request created: ${ pullRequest.html_url }` );
+			return {
+				deletionCommitHash: deletionCommitHash.trim(),
+				prNumber: pullRequest.number,
+			};
+		}
 	} catch ( e ) {
 		Logger.error( e );
 	}
@@ -194,7 +203,7 @@ export const updateTrunkChangelog = async (
 			owner,
 			name,
 			title: `Release: Remove ${ version } change files`,
-			body: `This pull request was automatically generated during the code freeze to remove the changefiles from ${ version } that are compiled into the \`${ releaseBranch }\` branch via #${ prNumber }`,
+			body: `This pull request was automatically generated during the code freeze to remove the changefiles from ${ version } that are compiled into the \`${ releaseBranch }\` ${ prNumber > 0 ? `branch via #${ prNumber }` : '' }`,
 			head: branch,
 			base: 'trunk',
 		} );
