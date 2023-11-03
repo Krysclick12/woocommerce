@@ -1,16 +1,27 @@
 /**
  * External dependencies
  */
-import { assign } from 'xstate';
-import { getQuery, updateQueryString } from '@woocommerce/navigation';
+import { assign, spawn } from 'xstate';
+import {
+	getQuery,
+	updateQueryString,
+	getNewPath,
+} from '@woocommerce/navigation';
 import { recordEvent } from '@woocommerce/tracks';
+import { dispatch } from '@wordpress/data';
+import { OPTIONS_STORE_NAME } from '@woocommerce/data';
 
 /**
  * Internal dependencies
  */
 import {
+	ColorPaletteResponse,
 	designWithAiStateMachineContext,
 	designWithAiStateMachineEvents,
+	LookAndToneCompletionResponse,
+	Header,
+	Footer,
+	HomepageTemplate,
 } from './types';
 import { aiWizardClosedBeforeCompletionEvent } from './events';
 import {
@@ -18,7 +29,7 @@ import {
 	lookAndFeelCompleteEvent,
 	toneOfVoiceCompleteEvent,
 } from './pages';
-import { LookAndToneCompletionResponse } from './services';
+import { attachIframeListeners, onIframeLoad } from '../utils';
 
 const assignBusinessInfoDescription = assign<
 	designWithAiStateMachineContext,
@@ -72,14 +83,143 @@ const assignLookAndTone = assign<
 	},
 } );
 
+const assignDefaultColorPalette = assign<
+	designWithAiStateMachineContext,
+	designWithAiStateMachineEvents
+>( {
+	aiSuggestions: ( context, event: unknown ) => {
+		return {
+			...context.aiSuggestions,
+			defaultColorPalette: (
+				event as {
+					data: {
+						response: ColorPaletteResponse;
+					};
+				}
+			 ).data.response,
+		};
+	},
+} );
+
+const assignFontPairing = assign<
+	designWithAiStateMachineContext,
+	designWithAiStateMachineEvents
+>( {
+	aiSuggestions: ( context ) => {
+		let fontPairing = context.aiSuggestions.fontPairing;
+		const choice = context.lookAndFeel.choice;
+
+		switch ( true ) {
+			case choice === 'Contemporary':
+				fontPairing = 'Inter + Inter';
+				break;
+			case choice === 'Classic':
+				fontPairing = 'Bodoni Moda + Overpass';
+				break;
+			case choice === 'Bold':
+				fontPairing = 'Plus Jakarta Sans + Plus Jakarta Sans';
+				break;
+		}
+
+		return {
+			...context.aiSuggestions,
+			fontPairing,
+		};
+	},
+} );
+
+const assignHeader = assign<
+	designWithAiStateMachineContext,
+	designWithAiStateMachineEvents
+>( {
+	aiSuggestions: ( context, event: unknown ) => {
+		return {
+			...context.aiSuggestions,
+			header: (
+				event as {
+					data: {
+						response: Header;
+					};
+				}
+			 ).data.response.slug,
+		};
+	},
+} );
+
+const assignFooter = assign<
+	designWithAiStateMachineContext,
+	designWithAiStateMachineEvents
+>( {
+	aiSuggestions: ( context, event: unknown ) => {
+		return {
+			...context.aiSuggestions,
+			footer: (
+				event as {
+					data: {
+						response: Footer;
+					};
+				}
+			 ).data.response.slug,
+		};
+	},
+} );
+
+const assignHomepageTemplate = assign<
+	designWithAiStateMachineContext,
+	designWithAiStateMachineEvents
+>( {
+	aiSuggestions: ( context, event: unknown ) => {
+		return {
+			...context.aiSuggestions,
+			homepageTemplate: (
+				event as {
+					data: {
+						response: HomepageTemplate;
+					};
+				}
+			 ).data.response.homepage_template,
+		};
+	},
+} );
+
+const updateWooAiStoreDescriptionOption = ( descriptionText: string ) => {
+	return dispatch( OPTIONS_STORE_NAME ).updateOptions( {
+		woo_ai_describe_store_description: descriptionText,
+	} );
+};
+
+const spawnSaveDescriptionToOption = assign<
+	designWithAiStateMachineContext,
+	designWithAiStateMachineEvents,
+	designWithAiStateMachineEvents
+>( {
+	spawnSaveDescriptionToOptionRef: (
+		context: designWithAiStateMachineContext
+	) =>
+		spawn(
+			() =>
+				updateWooAiStoreDescriptionOption(
+					context.businessInfoDescription.descriptionText
+				),
+			'update-woo-ai-business-description-option'
+		),
+} );
+
+const assignAPICallLoaderError = assign<
+	designWithAiStateMachineContext,
+	designWithAiStateMachineEvents
+>( {
+	apiCallLoader: () => {
+		return {
+			hasErrors: true,
+		};
+	},
+} );
+
 const logAIAPIRequestError = () => {
 	// log AI API request error
 	// eslint-disable-next-line no-console
 	console.log( 'API Request error' );
-	recordEvent(
-		'customize_your_store_look_and_tone_ai_completion_response_error',
-		{ error_type: 'http_network_error' }
-	);
 };
 
 const updateQueryStep = (
@@ -137,14 +277,51 @@ const recordTracksStepCompleted = (
 	} );
 };
 
+const redirectToAssemblerHub = async () => {
+	const assemblerUrl = getNewPath( {}, '/customize-store/assembler-hub', {} );
+	const iframe = document.createElement( 'iframe' );
+	iframe.classList.add( 'cys-fullscreen-iframe' );
+	iframe.src = assemblerUrl;
+
+	const showIframe = () => {
+		const loader = document.getElementsByClassName(
+			'woocommerce-onboarding-loader'
+		);
+		if ( loader[ 0 ] ) {
+			( loader[ 0 ] as HTMLElement ).style.display = 'none';
+		}
+		iframe.style.opacity = '1';
+	};
+
+	iframe.onload = () => {
+		// Hide loading UI
+		attachIframeListeners( iframe );
+		onIframeLoad( showIframe );
+
+		// Ceiling wait time set to 60 seconds
+		setTimeout( showIframe, 60 * 1000 );
+		window.history?.pushState( {}, '', assemblerUrl );
+	};
+
+	document.body.appendChild( iframe );
+};
+
 export const actions = {
 	assignBusinessInfoDescription,
 	assignLookAndFeel,
 	assignToneOfVoice,
 	assignLookAndTone,
+	assignDefaultColorPalette,
+	assignFontPairing,
+	assignHeader,
+	assignFooter,
+	assignHomepageTemplate,
+	assignAPICallLoaderError,
 	logAIAPIRequestError,
 	updateQueryStep,
 	recordTracksStepViewed,
 	recordTracksStepClosed,
 	recordTracksStepCompleted,
+	spawnSaveDescriptionToOption,
+	redirectToAssemblerHub,
 };
